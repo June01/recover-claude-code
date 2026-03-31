@@ -5,67 +5,92 @@ This repository contains the full TypeScript source of **`@anthropic-ai/claude-c
 > **Just want to read the code?** Browse [`src/`](./src) directly.
 > **Want to verify the source yourself?** Follow the steps below to extract independently from npm and compare byte-for-byte.
 
+**The only trustworthy first-hand source is the npm package itself.** Every GitHub mirror is second-hand.
+
 ---
 
-## Reproduce the extraction
+## Trust chain
 
-```bash
-# 1. Download the npm tarball directly from the registry
-curl -L https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.88.tgz \
-     -o claude-code-2.1.88.tgz
-
-# 2. Restore all source files
-python3 recover.py
-
-# 3. Or restore only Anthropic's own TypeScript (src/) — skips node_modules
-python3 recover.py --only-anthropic
+```
+npm registry (official)
+  └── @anthropic-ai/claude-code@2.1.88
+        └── cli.js.map (59.8 MB, first-hand source)
+              └── GitHub mirrors (second-hand, potentially modified)
 ```
 
-Recovered files appear in `recovered/` and will be identical to `src/` in this repo.
+---
+
+## Extracting it yourself is the most reliable approach
+
+The source originates from the official npm package. Unpacking the tarball gives you the raw `.map` file directly:
+
+```bash
+# Download the official package
+npm pack @anthropic-ai/claude-code@2.1.88
+
+# Unpack
+tar -xzf anthropic-ai-claude-code-2.1.88.tgz
+cd package
+
+# cli.js.map is right there — extract source with recover.py
+python3 ../recover.py --mapfile cli.js.map --only-anthropic
+```
+
+The recovered files will be identical to `src/` in this repo.
+
+---
+
+## Trustworthiness of known GitHub mirrors
+
+| Repository | Notes |
+|------|------|
+| `nirholas/claude-code` | Claims to be an unmodified backup of the original leak, stored in a `backup` branch |
+| `chatgptprojects/claude-code` | States it was unpacked from the npm tarball and provides a reproduction command |
+| `sanbuphy/claude-code-source-code` | Detailed analysis report, bilingual, but focused on analysis rather than archival fidelity |
+| `Kuberwastaken/claude-code` | Primarily an explainer article, not the raw source |
+
+The shared problem with all mirrors: broken chain of custody, mutable git history, and they can be taken down via DMCA at any time.
+
+---
+
+## Background worth knowing
+
+This is not the first time. In February 2025, on the day Claude Code first launched, it shipped with a source map. Anthropic pulled the package within two hours, but someone had already extracted and published the source to GitHub (`dnakov/claude-code`). Version 2.1.88 is a repeat of the same mistake, 13 months later.
+
+If you want the authentic, verifiable version: **get the 2.1.88 tarball directly from npm**, unpack it yourself, and verify. No mirror is more trustworthy than the original package.
 
 ---
 
 ## Why npm is the only trustworthy first-hand source
 
-When a story breaks about a "leaked" codebase, GitHub mirrors appear within hours.
-Those mirrors are **second-hand**: someone else extracted the files, committed them, and you're trusting that person didn't modify anything.
-
-The **npm registry** is different:
-
 | Property | npm registry | GitHub mirror |
 |---|---|---|
 | Publisher | Anthropic themselves (authenticated push) | Unknown third party |
 | Chain of custody | Unbroken: Anthropic → registry → you | Broken: Anthropic → registry → mirror author → you |
-| Integrity check | `npm pack` / sha512 in `package-lock.json` | None (git history is mutable) |
-| Availability | Registry CDN, globally cached | Repo may be taken down at any time |
+| Integrity check | sha512 fixed in registry metadata | None — git history is mutable |
+| Availability | Registry CDN, globally cached | Can be taken down at any time |
 | Verifiability | Compare checksum against registry metadata | Cannot verify |
 
-The tarball URL is deterministic and permanent:
-
-```
-https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-{VERSION}.tgz
-```
-
-You can verify the download against the registry's own integrity hash:
+Verify the tarball against the registry's own integrity hash:
 
 ```bash
-# Fetch the published shasum from the registry manifest
+# Fetch the published sha512 from the registry manifest
 curl -s https://registry.npmjs.org/@anthropic-ai/claude-code/2.1.88 \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['dist']['integrity'])"
 
-# Compare against your local file
-openssl dgst -sha512 -binary claude-code-2.1.88.tgz | openssl base64 -A | sed 's/^/sha512-/'
+# Compute the sha512 of your local file
+openssl dgst -sha512 -binary anthropic-ai-claude-code-2.1.88.tgz \
+  | openssl base64 -A \
+  | sed 's/^/sha512-/'
 ```
 
-If those two strings match, your copy is byte-for-byte identical to what Anthropic published.
-No GitHub mirror can offer this guarantee.
+If those two strings match, your copy is byte-for-byte identical to what Anthropic published. No GitHub mirror can offer this guarantee.
 
 ---
 
 ## How the source code ended up inside the tarball
 
-Claude Code is a Node.js CLI bundled with **esbuild**.
-esbuild can emit a *source map* alongside the compiled bundle:
+Claude Code is a Node.js CLI bundled with **esbuild**. esbuild can emit a *source map* alongside the compiled bundle:
 
 ```
 package/
@@ -73,19 +98,17 @@ package/
 └── cli.js.map      ← source map  ← should NOT have been here
 ```
 
-A source map (spec: [Source Map v3](https://sourcemaps.info/spec.html)) contains two key arrays:
+A source map ([Source Map v3 spec](https://sourcemaps.info/spec.html)) contains two key arrays:
 
 - **`sources`** — original file paths (e.g. `../src/utils/log.ts`)
 - **`sourcesContent`** — the **full text of every source file**, embedded verbatim
 
-This feature exists so that browser / Node devtools can show you readable stack traces from minified code.  In production npm packages it is almost always disabled or the `.map` file is excluded from the published bundle.
+**Version 2.1.88 made two mistakes simultaneously:**
 
-Version **2.1.88** shipped with both:
+1. `cli.js.map` was included in the `package/` directory inside the tarball
+2. `sourcesContent` was not stripped
 
-1. `cli.js.map` included in the `package/` directory inside the tarball, **and**
-2. `sourcesContent` populated (not stripped).
-
-The result: a single 57 MB JSON file that contains the complete original TypeScript source of every module compiled into the CLI — **4 756 source files, 1 906 of which are Anthropic's own code**.
+The result: a single 57 MB JSON file containing the complete original TypeScript source of every module compiled into the CLI — **4,756 source files, 1,906 of which are Anthropic's own code**.
 
 This script simply reads that JSON and writes each `sourcesContent[i]` to `sources[i]`.
 
@@ -93,14 +116,9 @@ This script simply reads that JSON and writes each `sourcesContent[i]` to `sourc
 
 ## Why version 2.1.88 is still downloadable
 
-npm's **unpublish policy** (effective since 2020) prevents authors from removing a version once it has been available for **more than 72 hours**, unless:
+npm's **unpublish policy** (effective since 2020) prevents authors from removing a version once it has been available for more than **72 hours**, unless the package has zero dependents and the author contacts npm Support.
 
-- The version was published less than 72 hours ago, **or**
-- The package has zero dependents and the author contacts npm Support.
-
-`@anthropic-ai/claude-code` has a large number of dependents (anyone who has run `npm install -g @anthropic-ai/claude-code`), so the 72-hour window has long since closed and the version cannot be unpublished unilaterally.
-
-Additionally, even if a package is unpublished from the registry, popular CDNs and mirrors (Cloudflare R2, Fastly, regional caches) often retain the tarball.  The sha512 integrity hash embedded in every `package-lock.json` that ever referenced this version means the content is permanently pinned.
+`@anthropic-ai/claude-code` has a large number of dependents, so the 72-hour window has long since closed. Even if the registry entry were removed, CDN nodes (Cloudflare, Fastly) and private registry mirrors worldwide have already cached the tarball.
 
 Reference: [npm unpublish policy](https://docs.npmjs.com/policies/unpublish)
 
@@ -124,7 +142,6 @@ recover-claude-code/
 ```
 
 `src/` was extracted directly from the npm source map without modification.
-Run `python3 recover.py --only-anthropic` to reproduce the extraction independently and verify it matches.
 
 ---
 
@@ -139,16 +156,10 @@ usage: recover.py [-h] [--tarball PATH] [--mapfile PATH] [--outdir DIR] [--only-
   --only-anthropic    Only restore src/ files (skip node_modules)
 ```
 
----
-
-## Requirements
-
 Python 3.6+, standard library only — no third-party packages needed.
 
 ---
 
 ## Legal
 
-The `src/` directory contains source code extracted from a tarball published by Anthropic to the public npm registry with no access restrictions.
-Reading `sourcesContent` from a source map is standard browser/Node tooling used daily by millions of developers — it is not decompilation or reverse engineering.
-This repository exists to document a publicly accessible fact and to provide a reproducible, verifiable method for anyone to confirm the source independently.
+The `src/` directory contains source code extracted from a tarball published by Anthropic to the public npm registry with no access restrictions. Reading `sourcesContent` from a source map is standard browser/Node tooling used daily by millions of developers — it is not decompilation or reverse engineering. This repository exists to document a publicly accessible fact and to provide a reproducible, verifiable method for anyone to confirm the source independently.
