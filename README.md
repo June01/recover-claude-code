@@ -1,10 +1,13 @@
 # recover-claude-code
 
-Restore the full TypeScript source of **Claude Code** (`@anthropic-ai/claude-code`) from the npm package itself — no GitHub mirrors, no leaks, no scraping.
+This repository contains the full TypeScript source of **`@anthropic-ai/claude-code` v2.1.88**, extracted directly from Anthropic's own npm package (see [`src/`](./src)), along with the script used to reproduce the extraction.
+
+> **Just want to read the code?** Browse [`src/`](./src) directly.
+> **Want to verify the source yourself?** Follow the steps below to extract independently from npm and compare byte-for-byte.
 
 ---
 
-## Quick start
+## Reproduce the extraction
 
 ```bash
 # 1. Download the npm tarball directly from the registry
@@ -18,7 +21,7 @@ python3 recover.py
 python3 recover.py --only-anthropic
 ```
 
-Recovered files appear in `recovered/`.
+Recovered files appear in `recovered/` and will be identical to `src/` in this repo.
 
 ---
 
@@ -103,21 +106,25 @@ Reference: [npm unpublish policy](https://docs.npmjs.com/policies/unpublish)
 
 ---
 
-## What's inside
+## Repository structure
 
 ```
-recovered/
-├── src/               ← Anthropic's own TypeScript source
-│   ├── utils/
-│   ├── services/
-│   ├── bootstrap/
-│   ├── tools/
-│   ├── ink/           ← terminal UI components (React/Ink)
-│   └── ...
-└── node_modules/      ← vendored dependencies (also source-mapped)
+recover-claude-code/
+├── recover.py         ← extraction script
+├── README.md
+├── README_CN.md
+└── src/               ← Anthropic's own TypeScript source (1,902 files)
+    ├── utils/
+    ├── services/
+    ├── bootstrap/
+    ├── tools/
+    ├── commands/
+    ├── ink/           ← terminal UI components (React/Ink)
+    └── ...
 ```
 
-Run `python3 recover.py --only-anthropic` to skip the `node_modules` subtree and get only the 1 906 files that Anthropic wrote.
+`src/` was extracted directly from the npm source map without modification.
+Run `python3 recover.py --only-anthropic` to reproduce the extraction independently and verify it matches.
 
 ---
 
@@ -142,8 +149,6 @@ Python 3.6+, standard library only — no third-party packages needed.
 
 ## Legal
 
-This repository contains **no source code from Anthropic**.
-It contains only a script that reads a file you download yourself from the official npm registry.
-The npm tarball is publicly available and was published by Anthropic.
-
-The technique (reading `sourcesContent` from a source map) is standard browser/Node tooling used daily by millions of developers.
+The `src/` directory contains source code extracted from a tarball published by Anthropic to the public npm registry with no access restrictions.
+Reading `sourcesContent` from a source map is standard browser/Node tooling used daily by millions of developers — it is not decompilation or reverse engineering.
+This repository exists to document a publicly accessible fact and to provide a reproducible, verifiable method for anyone to confirm the source independently.
